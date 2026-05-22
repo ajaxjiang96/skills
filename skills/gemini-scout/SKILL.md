@@ -6,7 +6,7 @@ description: >
   consistency with its declared architecture. Triggers on phrases like "scout this", "second opinion",
   "red team this", "review this PR for consistency", "prepare context for this issue", "architecture scout",
   "find stale code paths", "is this PR safe", "what does this break", or any request for external
-  analysis that should not modify files. Uses `gemini -p --approval-mode plan` for safe read-only recon.
+  analysis that should not modify files. Uses `gemini --approval-mode plan -p` for safe read-only recon.
 ---
 
 # Gemini Scout
@@ -43,7 +43,7 @@ A bad report:
 
 ## Hard Rules
 
-- Always use `gemini -p --approval-mode plan`. Never `--yolo` / `-y`.
+- Always use `gemini --approval-mode plan -p`. Never `--yolo` / `-y`.
 - Do not edit files. Do not run destructive commands. Do not create patches unless explicitly asked.
 - Optimize for architectural and product consistency — not code style nits.
 - Prefer 3-7 high-signal findings over exhaustive coverage. Skip low-signal findings.
@@ -52,10 +52,33 @@ A bad report:
 ## Base Command
 
 ```bash
-gemini -p --approval-mode plan "<PROMPT>"
+gemini --approval-mode plan -p "<PROMPT>"
 ```
 
+The ordering matters: `-p` (short for `--prompt`) consumes the next argument as the prompt text. If `-p` comes before `--approval-mode`, it swallows `--approval-mode` as the prompt value instead of treating it as a flag. Always place `--approval-mode plan` (or any other flags) before `-p`, or use the long form `--prompt` which is explicit about where the prompt ends.
+
 Add `-m <model>` to specify a model if the default isn't suitable. The default model works for most scout tasks; use a stronger model for red-team or architecture-scout on large PRs.
+
+## Long Prompts
+
+The inline `-p "..."` form works for short prompts. For the multi-line prompt templates in the Modes section, use a temp file or heredoc to avoid shell escaping issues:
+
+```bash
+# Write the prompt to a temp file
+cat > .gemini/tmp/prompt.txt << 'PROMPT_EOF'
+You are a read-only repo scout.
+Goal: prepare implementation context for this issue:
+
+<ISSUE SUMMARY>
+
+First, inspect repository evidence...
+PROMPT_EOF
+
+# Pass it to gemini
+gemini --approval-mode plan --prompt "$(cat .gemini/tmp/prompt.txt)"
+```
+
+The `--prompt` long form is explicit about boundaries — it avoids the argument ordering risk of `-p`. The heredoc delimiter (`PROMPT_EOF`) must be quoted (`'PROMPT_EOF'`) to prevent shell expansion inside the prompt body.
 
 ## Setup Check
 
@@ -68,7 +91,7 @@ Before first use, verify the operational baseline:
 A quick smoke test:
 
 ```bash
-echo "list files in the current directory" | gemini -p "test" --approval-mode plan
+echo "list files in the current directory" | gemini --approval-mode plan -p "test"
 ```
 
 ## Shared Prompt Rules
@@ -133,7 +156,7 @@ Architecture Scout is a Scout variant that audits the full repo against declared
 Use **before starting implementation**. Feeds Claude Code with a pre-read of relevant files and risks.
 
 ```bash
-gemini -p --approval-mode plan "You are a read-only repo scout.
+gemini --approval-mode plan -p "You are a read-only repo scout.
 Goal: prepare implementation context for this issue:
 
 <ISSUE SUMMARY>
@@ -160,7 +183,7 @@ Do not edit files. Do not produce code unless needed as pseudocode."
 Use **before or after Codex review**. Codex checks for bugs; this checks for architecture drift.
 
 ```bash
-gemini -p --approval-mode plan "You are reviewing a PR for product architecture consistency, not code style.
+gemini --approval-mode plan -p "You are reviewing a PR for product architecture consistency, not code style.
 
 First, inspect the repository evidence: read the PR diff, grep for relevant terms, and read the affected files. Only then report findings.
 Do not rely only on the PR description.
@@ -190,7 +213,7 @@ Return using this structure:
 Use **before roadmap or architecture decisions**. Gemini plays skeptic — it argues against the plan to stress-test it before committing.
 
 ```bash
-gemini -p --approval-mode plan "Act as a skeptical product and architecture reviewer.
+gemini --approval-mode plan -p "Act as a skeptical product and architecture reviewer.
 Argue against the following plan:
 
 <PLAN>
@@ -226,7 +249,7 @@ Do not propose a full rewrite. Return a concise critique and a recommended decis
 Use **before or after a PR** to audit the repo against its declared architecture.
 
 ```bash
-gemini -p --approval-mode plan "You are a read-only architecture scout.
+gemini --approval-mode plan -p "You are a read-only architecture scout.
 
 First, inspect the repository: grep or search for key terms (material, compiled_view, context_assembly, generation, generated_post, stale, source_workspace, intelligence), read the most relevant files, and only then report.
 Do not rely only on prior assumptions about the codebase.
@@ -307,6 +330,16 @@ cp ~/Downloads/error-log.txt .gemini/tmp/
 ```
 
 If the artifact is already a project file (e.g., a diff generated from `git diff`), no copy is needed.
+
+## Cleanup
+
+`.gemini/tmp/` artifacts are not automatically cleaned up. After the scout run completes, remove them to keep the repo clean:
+
+```bash
+rm -rf .gemini/tmp/
+```
+
+Consider adding `.gemini/tmp/` to `.gitignore` if scout runs are frequent. Leftover temp files accumulate over time and can cause confusion in later runs.
 
 ## Adapting Prompts
 
