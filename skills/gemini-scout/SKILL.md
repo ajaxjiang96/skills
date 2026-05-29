@@ -1,12 +1,13 @@
 ---
 name: gemini-scout
 description: >
-  Use when you need a read-only, long-context second opinion — scout a PR for architecture violations,
-  prepare implementation context before starting an issue, red-team a plan, or audit the repo for
-  consistency with its declared architecture. Triggers on phrases like "scout this", "second opinion",
-  "red team this", "review this PR for consistency", "prepare context for this issue", "architecture scout",
-  "find stale code paths", "is this PR safe", "what does this break", or any request for external
-  analysis that should not modify files. Uses `gemini --approval-mode plan -p` for safe read-only recon.
+  Use when you need a read-only, long-context second opinion — review code or a PR for correctness and
+  architecture fit, prepare implementation context before starting an issue, red-team a plan, or audit
+  the repo for consistency with its declared architecture. Triggers on phrases like "review this code",
+  "code review", "review this PR", "look over this diff", "scout this", "second opinion", "red team this",
+  "prepare context for this issue", "architecture scout", "find stale code paths", "is this PR safe",
+  "what does this break", or any request for external analysis that should not modify files.
+  Uses `gemini --approval-mode plan -p` for safe read-only recon.
 ---
 
 # Gemini Scout
@@ -18,7 +19,7 @@ Gemini is a **read-only scout** and **second-opinion reviewer**. It does not own
 | Product direction, issue spec, roadmap memory | ChatGPT |
 | Implementation | Claude Code |
 | Formal code review | Codex |
-| Scout reconnaissance, architecture review, red team | Gemini |
+| Scout reconnaissance, code review, architecture review, red team | Gemini |
 
 Gemini's output is **never authoritative** — it is a scout report for Claude Code, a counterargument for the PM, and auxiliary input for product decisions.
 
@@ -141,12 +142,13 @@ All modes return results in this structure. Every section is required; if a sect
 
 ## Modes
 
-Three distinct roles, never combined in a single prompt:
+Four distinct roles, never combined in a single prompt:
 
 | Mode | Role | When |
 |------|------|------|
 | Scout | Find a repo-grounded implementation path | Before starting an issue |
-| Review | Inspect a diff or PR for correctness and architecture fit | Before or after a merge |
+| Code Review | Review code, a diff, or PR for correctness, security, and maintainability | Before or after a merge |
+| PR Consistency Review | Inspect a PR for architecture drift against project invariants | Before or after a merge |
 | Red Team | Challenge assumptions, tradeoffs, failure modes, and alternative designs | Before roadmap or architecture decisions |
 
 Architecture Scout is a Scout variant that audits the full repo against declared architecture invariants rather than a specific issue.
@@ -178,7 +180,44 @@ Return using this structure:
 Do not edit files. Do not produce code unless needed as pseudocode."
 ```
 
-### 2. PR Consistency Review
+### 2. Code Review
+
+Use **before or after a merge** to review code for correctness, security, performance, and maintainability. This is the general-purpose code review mode — use it when someone says "review this code", "code review this PR", or "look over this diff". It is project-agnostic and does not assume any specific architecture.
+
+```bash
+gemini --approval-mode plan -p "You are reviewing code for correctness, security, performance, and maintainability.
+
+First, inspect the repository evidence: read the diff or changed files, grep for relevant patterns, and read the affected files. Only then report findings.
+Do not rely only on the PR description or commit messages.
+If evidence is missing or ambiguous, say so explicitly.
+Prefer 3-7 high-signal findings over exhaustive coverage. Skip low-signal findings.
+Separate observed facts, inferences, and recommendations. Mark inferred risks as [inference].
+
+Focus on these concerns, in priority order:
+1. Correctness — bugs, logic errors, edge cases, off-by-one, null/undefined handling, race conditions
+2. Security — injection risks, auth/authz bypass, data exposure, unsafe deserialization, missing validation
+3. Performance — N+1 queries, unnecessary allocations, blocking I/O, missing indexes, large payloads
+4. Maintainability — unclear naming, missing error handling, tightly coupled modules, dead code, missing tests
+
+Additional lenses to apply when relevant:
+- Does the change follow existing patterns in the codebase, or does it introduce inconsistency?
+- Are there tests for the new behavior? Do they cover edge cases?
+- Could this change break existing callers or downstream consumers?
+- Is there a simpler approach that achieves the same goal?
+
+If the codebase has a CLAUDE.md, ARCHITECTURE.md, or similar conventions file, read it and check the change against it.
+
+Return using this structure:
+1. Evidence read — diff or files inspected, patterns searched for, conventions file if any.
+2. Findings — high-signal observations grounded in the diff. Mark as Bug, Security, Performance, Maintainability, or Style. Distinguish Blockers from Non-blocking.
+3. Risks — what could go wrong if this change lands as-is.
+4. Files to inspect next — files that need a closer look or could be affected.
+5. Recommended actions — concrete fixes or follow-up items, small and executable in one pass.
+6. Uncertainties — what could not be verified from the diff alone, what context would help.
+
+Do not nitpick formatting or style unless it meaningfully impacts readability. Do not flag issues that a linter or formatter would catch. Focus on things a machine cannot detect."
+
+### 3. PR Consistency Review
 
 Use **before or after Codex review**. Codex checks for bugs; this checks for architecture drift.
 
@@ -208,7 +247,7 @@ Return using this structure:
 6. Uncertainties — what could not be verified from the diff alone."
 ```
 
-### 3. Red Team
+### 4. Red Team
 
 Use **before roadmap or architecture decisions**. Gemini plays skeptic — it argues against the plan to stress-test it before committing.
 
@@ -244,7 +283,7 @@ Return using this structure:
 Do not propose a full rewrite. Return a concise critique and a recommended decision."
 ```
 
-### 4. Architecture Scout
+### 5. Architecture Scout
 
 Use **before or after a PR** to audit the repo against its declared architecture.
 
@@ -289,7 +328,7 @@ Gemini Scout → issue-scout (pre-implementation recon)
     ↓
 Claude Code → implement
     ↓
-Gemini Scout → architecture / PR consistency scan
+Gemini Scout → code review / architecture / PR consistency scan
     ↓
 Codex → formal code review
     ↓

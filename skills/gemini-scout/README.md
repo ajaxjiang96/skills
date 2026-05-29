@@ -1,6 +1,6 @@
 # gemini-scout
 
-A read-only scout skill for Gemini CLI — architecture review, issue prep, and red-team analysis.
+A read-only scout skill for Gemini CLI — code review, architecture review, issue prep, and red-team analysis.
 
 ## Install
 
@@ -13,7 +13,8 @@ npx skills add ajaxjiang96/gemini-scout
 | Mode | Role | When |
 |------|------|------|
 | Scout | Find a repo-grounded implementation path | Before starting an issue |
-| Review | Inspect a diff or PR for correctness and architecture fit | Before or after a merge |
+| Code Review | Review code, a diff, or PR for correctness, security, and maintainability | Before or after a merge |
+| PR Consistency Review | Inspect a PR for architecture drift against project invariants | Before or after a merge |
 | Red Team | Challenge assumptions, tradeoffs, failure modes, and alternative designs | Before roadmap or architecture decisions |
 
 ## Requirements

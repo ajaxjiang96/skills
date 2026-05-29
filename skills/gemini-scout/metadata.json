@@ -1,6 +1,6 @@
 {
-  "version": "0.1.1",
-  "abstract": "Read-only repo scout skill for Gemini CLI. Inspects repository evidence before making claims, separates facts from inferences, and produces architecture-grounded second opinions for Claude Code. Three modes: Scout (implementation path), Review (diff/PR architecture fit), Red Team (challenge assumptions and tradeoffs).",
+  "version": "0.2.0",
+  "abstract": "Read-only repo scout skill for Gemini CLI. Inspects repository evidence before making claims, separates facts from inferences, and produces architecture-grounded second opinions for Claude Code. Four modes: Scout (implementation path), Code Review (correctness/security/maintainability), PR Consistency Review (diff/PR architecture fit), Red Team (challenge assumptions and tradeoffs).",
   "references": [
     "https://geminicli.com"
   ]
